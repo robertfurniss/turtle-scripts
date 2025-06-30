@@ -300,7 +300,7 @@ local function plantFarm()
     -- Restore the turtle's initial starting position and orientation.
     currentX, currentY, currentZ, currentDir = originalX, originalY, originalZ, originalDir
     print("Finished planting farm.")
-}
+end
 
 -- Waits for trees to grow.
 -- Spruce trees can take a while to grow, so a longer sleep duration is used.
@@ -308,7 +308,7 @@ local function waitForGrowth()
     print("Waiting for trees to grow (5 minutes).")
     os.sleep(300) -- Wait for 300 seconds (5 real-world minutes).
     print("Finished waiting.")
-}
+end
 
 -- Harvests a single 2x2 spruce tree at the turtle's current location.
 -- Assumes the turtle is at the top-left corner of the 2x2 sapling area, facing north.
@@ -391,7 +391,7 @@ local function harvestFarm()
     -- Restore the turtle's initial starting position and orientation.
     currentX, currentY, currentZ, currentDir = originalX, originalY, originalZ, originalDir
     print("Finished harvesting farm.")
-}
+end
 
 -- Main program loop
 local function main()
