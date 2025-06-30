@@ -22,11 +22,13 @@
         - An axe/pickaxe attached as a peripheral (e.g., on the side).
         - Spruce saplings in SAPLING_SLOT (default: slot 2).
         - Fuel (coal, charcoal, etc.) in FUEL_SLOT (default: slot 3).
+        - DIRT/GRASS BLOCKS in DIRT_SLOT (default: slot 1) for replanting ground.
     4. The area in front of the turtle needs to be clear for a 6x6 farm grid.
        The turtle will manage its own movement within this grid.
 ]]--
 
 -- Constants
+local DIRT_SLOT = 1    -- The inventory slot where dirt/grass blocks are kept for replanting ground.
 local SAPLING_SLOT = 2 -- The inventory slot where spruce saplings are kept.
 local FUEL_SLOT = 3    -- The inventory slot where fuel (e.g., coal, charcoal) is kept.
 local CHEST_SLOT = 16  -- A temporary slot used for managing inventory when dropping items.
@@ -195,6 +197,30 @@ local function refuel()
     end
 end
 
+-- Consolidates any fuel items found in other inventory slots into the designated FUEL_SLOT.
+local function consolidateFuel()
+    print("Consolidating fuel items.")
+    local originalSlot = turtle.getSelectedSlot() -- Save current selected slot
+
+    for i = 1, 16 do
+        if i ~= FUEL_SLOT then -- Only check slots that are not the primary fuel slot
+            turtle.select(i)
+            local item = turtle.getItemDetail()
+            if item then
+                -- Check if the item is a fuel source. A simple way is to try to refuel 0 units.
+                -- This will return true if it's fuel, false otherwise, without consuming it.
+                local isFuel = turtle.refuel(0)
+                if isFuel then
+                    print("Found fuel (" .. item.name .. ") in slot " .. i .. ". Transferring to slot " .. FUEL_SLOT .. ".")
+                    turtle.transferTo(FUEL_SLOT)
+                end
+            end
+        end
+    end
+    turtle.select(originalSlot) -- Restore original selected slot
+    print("Finished consolidating fuel.")
+end
+
 -- Deposits all items from the turtle's inventory (except saplings and fuel) into a chest.
 -- Assumes the chest is directly behind the turtle's starting position.
 local function depositItems()
@@ -209,7 +235,7 @@ local function depositItems()
     -- Iterate through all inventory slots.
     for i = 1, 16 do
         -- Do NOT drop saplings or fuel, they are needed for operations.
-        if i ~= SAPLING_SLOT and i ~= FUEL_SLOT then
+        if i ~= SAPLING_SLOT and i ~= FUEL_SLOT and i ~= DIRT_SLOT then -- Also exclude DIRT_SLOT
             -- Explicit checks for turtle inventory functions
             if not turtle or type(turtle.select) ~= "function" or type(turtle.getItemDetail) ~= "function" or type(turtle.drop) ~= "function" then
                 error("Turtle inventory functions (select/getItemDetail/drop) are missing/corrupted during deposit.")
@@ -276,19 +302,50 @@ local function plant2x2Tree()
         error("Turtle inventory/placement functions are missing/corrupted during planting.")
     end
 
-    turtle.select(SAPLING_SLOT) -- Select the sapling slot
-    
-    -- Robust check for getItemCount return value
+    -- Check if enough saplings and dirt are available.
     local saplingCount = turtle.getItemCount(SAPLING_SLOT)
+    local dirtCount = turtle.getItemCount(DIRT_SLOT)
+
     if type(saplingCount) ~= "number" then
-        print("Error: turtle.getItemCount did not return a number for slot " .. SAPLING_SLOT .. ". Got: " .. tostring(saplingCount))
-        error("Unexpected return from getItemCount. Program halted.")
+        print("Error: turtle.getItemCount did not return a number for sapling slot " .. SAPLING_SLOT .. ". Got: " .. tostring(saplingCount))
+        error("Unexpected return from getItemCount for saplings. Program halted.")
+    end
+    if type(dirtCount) ~= "number" then
+        print("Error: turtle.getItemCount did not return a number for dirt slot " .. DIRT_SLOT .. ". Got: " .. tostring(dirtCount))
+        error("Unexpected return from getItemCount for dirt. Program halted.")
     end
 
-    -- Check if enough saplings are available.
     if saplingCount < 4 then
         print("Not enough saplings to plant a 2x2 tree. Need 4, have " .. saplingCount .. ".")
         error("Insufficient saplings. Program halted.")
+    end
+    if dirtCount < 4 then
+        print("Not enough dirt/ground blocks to plant a 2x2 tree. Need 4, have " .. dirtCount .. ".")
+        error("Insufficient dirt/ground blocks. Program halted.")
+    end
+
+    -- Helper to place dirt then sapling at current position
+    local function placeDirtAndSapling()
+        local currentSelected = turtle.getSelectedSlot() -- Save current selected slot
+        
+        -- Place dirt first
+        turtle.select(DIRT_SLOT)
+        local dirtSuccess, dirtReason = turtle.placeDown()
+        if not dirtSuccess then
+            print("Warning: Failed to place dirt: " .. (dirtReason or "Unknown"))
+            -- Optionally, if dirt placement is critical and failing, you could error out here.
+            -- For now, we'll just warn and attempt sapling placement.
+        end
+
+        -- Then place sapling on top of the dirt
+        turtle.select(SAPLING_SLOT)
+        local saplingSuccess, saplingReason = turtle.placeDown()
+        if not saplingSuccess then
+            print("Warning: Failed to plant sapling: " .. (saplingReason or "Unknown"))
+            -- This is critical, so we might want to error out if sapling fails.
+            error("Failed to plant sapling. Program halted.")
+        end
+        turtle.select(currentSelected) -- Restore original selected slot
     end
 
     -- Plant saplings in a 2x2 pattern:
@@ -296,22 +353,18 @@ local function plant2x2Tree()
     -- 3 4
     -- (Relative to the turtle's starting point for planting this 2x2)
     
-    local success, reason = turtle.placeDown() -- Plant sapling 1 (at current position)
-    if not success then print("Warning: Failed to plant sapling at (0,0) of plot: " .. (reason or "Unknown")) end
+    placeDirtAndSapling() -- Plant sapling 1 (at current position)
 
     safeForward()      -- Move one block forward
-    success, reason = turtle.placeDown() -- Plant sapling 2
-    if not success then print("Warning: Failed to plant sapling at (0,1) of plot: " .. (reason or "Unknown")) end
+    placeDirtAndSapling() -- Plant sapling 2
 
     safeBack()         -- Move back to original Z
     safeTurnRight()    -- Turn right (now facing east)
     safeForward()      -- Move one block right (now at (1,0) of the 2x2 area)
-    success, reason = turtle.placeDown() -- Plant sapling 3
-    if not success then print("Warning: Failed to plant sapling at (1,0) of plot: " .. (reason or "Unknown")) end
+    placeDirtAndSapling() -- Plant sapling 3
 
     safeForward()      -- Move one block forward (now at (1,1) of the 2x2 area)
-    success, reason = turtle.placeDown() -- Plant sapling 4
-    if not success then print("Warning: Failed to plant sapling at (1,1) of plot: " .. (reason or "Unknown")) end
+    placeDirtAndSapling() -- Plant sapling 4
 
     safeBack()         -- Move back to (1,0)
     safeBack()         -- Move back to (1,-1) (relative to origin of 2x2 area)
@@ -429,13 +482,15 @@ local function main()
     print("Spruce Tree Farm Automation Started!")
     print("Ensure a pickaxe/axe is attached as a peripheral, saplings in slot " .. SAPLING_SLOT .. ", and fuel in slot " .. FUEL_SLOT .. ".")
     print("Place a chest directly behind the turtle for surplus items.")
+    print("Also, ensure you have DIRT/GRASS BLOCKS in slot " .. DIRT_SLOT .. " for replanting the ground.")
     
     -- Initial setup: No need to select slot 1 if the pickaxe is a peripheral.
 
     -- The main farming cycle runs indefinitely.
     while true do
         refuel()       -- Check and refuel the turtle.
-        depositItems() -- Deposit any collected items into the chest.
+        consolidateFuel() -- Consolidate all fuel into the FUEL_SLOT
+        depositItems() -- Deposit any collected items into the chest (excluding saplings, fuel, and dirt).
         plantFarm()    -- Plant new saplings in the farm area.
         waitForGrowth()-- Wait for the newly planted trees to grow.
         harvestFarm()  -- Harvest the grown trees.
