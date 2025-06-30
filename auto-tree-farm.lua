@@ -22,7 +22,7 @@
         - An axe/pickaxe attached as a peripheral (e.g., on the side).
         - Fuel (coal, charcoal, etc.) in FUEL_SLOT (default: slot 1).
         - Spruce saplings in SAPLING_SLOT (default: slot 2).
-        - DIRT/GRASS BLOCKS in DIRT_SLOT (default: slot 4) for replanting ground.
+        - DIRT/GRASS BLOCKS in DIRT_SLOT (default: slot 3) for replanting ground.
     4. The area in front of the turtle needs to be clear for a 6x6 farm grid.
        The turtle will manage its own movement within this grid.
 ]]--
@@ -30,7 +30,7 @@
 -- Constants
 local FUEL_SLOT = 1    -- The inventory slot where fuel (e.g., coal, charcoal) is kept.
 local SAPLING_SLOT = 2 -- The inventory slot where spruce saplings are kept.
-local DIRT_SLOT = 4    -- The inventory slot where dirt/grass blocks are kept for replanting ground.
+local DIRT_SLOT = 3    -- The inventory slot where dirt/grass blocks are kept for replanting ground.
 local CHEST_SLOT = 16  -- A temporary slot used for managing inventory when dropping items.
                        -- This should ideally be an empty slot or one not critical for operations.
 
@@ -197,11 +197,19 @@ local function refuel()
     end
 end
 
--- Consolidates any fuel items found in other inventory slots into the designated FUEL_SLOT.
-local function consolidateFuel()
-    print("Consolidating fuel items.")
-    local originalSlot = turtle.getSelectedSlot() -- Save current selected slot
+-- Deposits all items from the turtle's inventory (except saplings, fuel, and dirt) into a chest.
+-- Assumes the chest is directly behind the turtle's starting position.
+local function depositItems()
+    print("Depositing surplus items into chest.")
+    -- Save the turtle's current position and direction to return to it later.
+    local originalX, originalY, originalZ, originalDir = currentX, currentY, currentZ, currentDir
+    
+    -- Turn 180 degrees to face the chest. The turtle remains on its original block.
+    safeTurnLeft()
+    safeTurnLeft()
 
+    -- First, consolidate all fuel into the FUEL_SLOT
+    local currentSelected = turtle.getSelectedSlot() -- Save current selected slot
     for i = 1, 16 do
         if i ~= FUEL_SLOT then -- Only check slots that are not the primary fuel slot
             turtle.select(i)
@@ -217,22 +225,10 @@ local function consolidateFuel()
             end
         end
     end
-    turtle.select(originalSlot) -- Restore original selected slot
-    print("Finished consolidating fuel.")
-end
+    turtle.select(currentSelected) -- Restore original selected slot
+    print("Finished consolidating fuel before deposit.")
 
--- Deposits all items from the turtle's inventory (except saplings, fuel, and dirt) into a chest.
--- Assumes the chest is directly behind the turtle's starting position.
-local function depositItems()
-    print("Depositing surplus items into chest.")
-    -- Save the turtle's current position and direction to return to it later.
-    local originalX, originalY, originalZ, originalDir = currentX, currentY, currentZ, currentDir
-    
-    -- Turn 180 degrees to face the chest. The turtle remains on its original block.
-    safeTurnLeft()
-    safeTurnLeft()
-
-    -- Iterate through all inventory slots.
+    -- Now, iterate through all inventory slots to drop non-essential items.
     for i = 1, 16 do
         -- Do NOT drop saplings, fuel, or dirt, they are needed for operations.
         if i ~= SAPLING_SLOT and i ~= FUEL_SLOT and i ~= DIRT_SLOT then
@@ -515,8 +511,7 @@ local function main()
     -- The main farming cycle runs indefinitely.
     while true do
         refuel()       -- Check and refuel the turtle.
-        consolidateFuel() -- Consolidate all fuel into the FUEL_SLOT
-        depositItems() -- Deposit any collected items into the chest (excluding saplings, fuel, and dirt).
+        depositItems() -- Consolidate fuel and then deposit surplus items into the chest.
         plantFarm()    -- Plant new saplings in the farm area.
         waitForGrowth()-- Wait for the newly planted trees to grow.
         harvestFarm()  -- Harvest the grown trees.
