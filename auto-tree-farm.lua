@@ -27,8 +27,8 @@
 ]]--
 
 -- Constants
-local SAPLING_SLOT = 2 -- The inventory slot where spruce saplings are kept.
-local FUEL_SLOT = 3    -- The inventory slot where fuel (e.g., coal, charcoal) is kept.
+local SAPLING_SLOT = 1 -- The inventory slot where spruce saplings are kept.
+local FUEL_SLOT = 2    -- The inventory slot where fuel (e.g., coal, charcoal) is kept.
 local CHEST_SLOT = 16  -- A temporary slot used for managing inventory when dropping items.
                        -- This should ideally be an empty slot or one not critical for operations.
 
@@ -95,10 +95,19 @@ end
 -- `digFunc`: The corresponding digging function (e.g., `turtle.dig`, `turtle.digUp`).
 -- Returns true if the move was successful, false otherwise (though it will error out on persistent blockages).
 local function attemptMove(moveFunc, digFunc)
+    -- Ensure the turtle object and the move function exist
+    if not turtle or type(moveFunc) ~= "function" then
+        error("Turtle object or move function is missing/corrupted during attemptMove.")
+    end
+
     local success, reason = moveFunc()
     if not success then
         print("Blocked: " .. (reason or "Unknown reason") .. ". Attempting to dig.")
         if digFunc then
+            -- Ensure the dig function exists
+            if type(digFunc) ~= "function" then
+                error("Dig function is missing/corrupted during attemptMove.")
+            end
             local digSuccess, digReason = digFunc()
             if not digSuccess then
                 print("Failed to dig: " .. (digReason or "Unknown reason") .. ". Cannot proceed.")
@@ -159,9 +168,20 @@ end
 -- Refuels the turtle if its fuel level falls below a certain threshold.
 -- Checks the designated FUEL_SLOT for fuel items.
 local function refuel()
+    -- Explicit checks for turtle fuel functions
+    if not turtle or type(turtle.getFuelLevel) ~= "function" or type(turtle.getFuelLimit) ~= "function" then
+        error("Turtle fuel functions (getFuelLevel/getFuelLimit) are missing/corrupted.")
+    end
+
     -- Refuel when fuel is below 20% of its limit.
     if turtle.getFuelLevel() < turtle.getFuelLimit() * 0.2 then
         print("Fuel low. Attempting to refuel.")
+        
+        -- Explicit checks for turtle inventory/selection functions
+        if not turtle or type(turtle.getSelectedSlot) ~= "function" or type(turtle.select) ~= "function" or type(turtle.refuel) ~= "function" then
+            error("Turtle inventory/refuel functions are missing/corrupted.")
+        end
+
         local currentSlot = turtle.getSelectedSlot() -- Save current selected slot
         turtle.select(FUEL_SLOT) -- Select the fuel slot
         local success = turtle.refuel() -- Attempt to refuel
@@ -189,6 +209,10 @@ local function depositItems()
     -- Iterate through all inventory slots.
     for i = 1, 16 do
         if i ~= SAPLING_SLOT then -- Do NOT drop saplings, they are needed for replanting.
+            -- Explicit checks for turtle inventory functions
+            if not turtle or type(turtle.select) ~= "function" or type(turtle.getItemDetail) ~= "function" or type(turtle.drop) ~= "function" then
+                error("Turtle inventory functions (select/getItemDetail/drop) are missing/corrupted during deposit.")
+            end
             turtle.select(i)
             local item = turtle.getItemDetail()
             if item then
@@ -237,7 +261,7 @@ local function moveToRelative(targetX, targetY, targetZ)
     end
     
     print(string.format("Reached relative position: (%d, %d, %d).", currentX, currentY, currentZ))
-end
+}
 
 -- Plants a 2x2 square of spruce saplings at the turtle's current location.
 -- Assumes the turtle is at the top-left corner of the 2x2 planting area, facing north.
@@ -246,9 +270,14 @@ local function plant2x2Tree()
     -- Save current position and direction to ensure the turtle returns to its exact spot.
     local originalX, originalY, originalZ, originalDir = currentX, currentY, currentZ, currentDir
 
+    -- Explicit checks for turtle inventory/placement functions
+    if not turtle or type(turtle.select) ~= "function" or type(turtle.getItemCount) ~= "function" or type(turtle.placeDown) ~= "function" then
+        error("Turtle inventory/placement functions are missing/corrupted during planting.")
+    end
+
     turtle.select(SAPLING_SLOT) -- Select the sapling slot
     -- Check if enough saplings are available.
-    if turtle.getItemCount(SAPLING_SLOT) < 4 then
+    if turtle.getItemCount(SAPLING_SLOT) < 4 then -- LINE 239
         print("Not enough saplings to plant a 2x2 tree. Need 4, have " .. turtle.getItemCount(SAPLING_SLOT) .. ".")
         error("Insufficient saplings. Program halted.")
     end
@@ -323,6 +352,11 @@ local function harvest2x2Tree()
     print("Harvesting 2x2 spruce tree.")
     -- Save current position and direction to return to it after harvesting.
     local originalX, originalY, originalZ, originalDir = currentX, currentY, currentZ, currentDir
+
+    -- Explicit checks for turtle digging/sucking functions
+    if not turtle or type(turtle.dig) ~= "function" or type(turtle.digUp) ~= "function" or type(turtle.digDown) ~= "function" or type(turtle.suck) ~= "function" or type(turtle.suckUp) ~= "function" or type(turtle.suckDown) ~= "function" then
+        error("Turtle digging/sucking functions are missing/corrupted during harvest.")
+    end
 
     -- Harvest the 4 base logs of the 2x2 tree.
     -- The tree trunks are at (0,0), (0,1), (1,0), (1,1) relative to the sapling origin.
@@ -412,6 +446,9 @@ end
 
 -- Main program loop
 local function main()
+    -- Crucial initial check for the 'turtle' global object
+    assert(turtle, "Error: The 'turtle' global object is missing or corrupted! Ensure you are running this script on a ComputerCraft Turtle.")
+
     print("Spruce Tree Farm Automation Started!")
     print("Ensure a pickaxe/axe is attached as a peripheral, saplings in slot " .. SAPLING_SLOT .. ", and fuel in slot " .. FUEL_SLOT .. ".")
     print("Place a chest directly behind the turtle for surplus items.")
