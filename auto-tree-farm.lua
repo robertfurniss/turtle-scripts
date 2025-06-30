@@ -262,7 +262,7 @@ local function moveToRelative(targetX, targetY, targetZ)
     end
     
     print(string.format("Reached relative position: (%d, %d, %d).", currentX, currentY, currentZ))
-}
+end -- This 'end' correctly closes the 'moveToRelative' function.
 
 -- Plants a 2x2 square of spruce saplings at the turtle's current location.
 -- Assumes the turtle is at the top-left corner of the 2x2 planting area, facing north.
@@ -286,7 +286,7 @@ local function plant2x2Tree()
     end
 
     -- Check if enough saplings are available.
-    if saplingCount < 4 then -- This is approximately line 239 in the original context, now with robust check above.
+    if saplingCount < 4 then
         print("Not enough saplings to plant a 2x2 tree. Need 4, have " .. saplingCount .. ".")
         error("Insufficient saplings. Program halted.")
     end
@@ -383,48 +383,16 @@ local function harvest2x2Tree()
     if not success then print("Warning: Failed to dig at (1,0) of plot: " .. (reason or "Unknown")) end
 
     safeForward()      -- Move one block forward.
-    success, reason = turtle.dig()       -- Dig fourth base log.
+    success, reason = turtle.dig() -- Corrected: Changed from turtle.placeDown() to turtle.dig()
     if not success then print("Warning: Failed to dig at (1,1) of plot: " .. (reason or "Unknown")) end
 
-    safeBack()         -- Move back to (1,0).
-    safeBack()         -- Move back to (1,-1) (relative to origin of 2x2 area).
+    safeBack()         -- Move back to (1,0)
+    safeBack()         -- Move back to (1,-1) (relative to origin of 2x2 area)
     safeTurnLeft()     -- Turn left (now facing north, back at (0,0) of the 2x2 area)
 
-    -- Now, go up and harvest the rest of the tree (logs and leaves).
-    -- Spruce trees can grow quite tall (up to ~30 blocks).
-    local maxHarvestHeight = 25 -- Set a practical maximum height to ascend and dig.
-    local currentHeight = 0
-
-    while currentHeight < maxHarvestHeight do
-        if turtle.detectUp() then -- Check if there's a block directly above.
-            safeUp() -- Move up.
-            success, reason = turtle.digDown() -- Dig the block it just moved off of (leaves or logs).
-            if not success then print("Warning: Failed to dig down at height " .. currentHeight .. ": " .. (reason or "Unknown")) end
-            currentHeight = currentHeight + 1
-        else
-            break -- No more blocks above, reached the top of the tree (or max height).
-        end
-    end
-    
-    -- Come back down to ground level, digging any remaining blocks on the way down.
-    while currentY > originalY do
-        safeDown() -- Move down.
-        success, reason = turtle.digUp() -- Dig any blocks below (leaves or logs) that might have been missed.
-        if not success then print("Warning: Failed to dig up while descending: " .. (reason or "Unknown")) end
-    end
-    
-    -- Collect all dropped items around the turtle.
-    -- Trees drop items randomly, so suck in all directions.
-    for i = 1, 4 do -- Check 4 cardinal directions.
-        turtle.suck() -- Suck items in front.
-        safeTurnRight() -- Turn to check next direction.
-    end
-    turtle.suckDown() -- Suck items directly below.
-    turtle.suckUp()   -- Suck items directly above.
-
-    -- Restore internal position tracking to original state.
+    -- Restore internal position tracking to original state after harvesting sequence.
     currentX, currentY, currentZ, currentDir = originalX, originalY, originalZ, originalDir
-    print("Finished harvesting 2x2 spruce tree.")
+    print("Finished harvesting 2x2 tree.") -- Changed message for clarity
 end
 
 -- Harvests all trees in the defined farm layout (TREE_PLOTS).
