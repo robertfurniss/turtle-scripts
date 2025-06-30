@@ -19,7 +19,7 @@
     1. Place your turtle facing forward (e.g., North).
     2. Place a chest directly behind the turtle.
     3. Ensure the turtle has:
-        - An axe/pickaxe in slot 1 (or any slot, but slot 1 is assumed for digging).
+        - An axe/pickaxe attached as a peripheral (e.g., on the side).
         - Spruce saplings in SAPLING_SLOT (default: slot 2).
         - Fuel (coal, charcoal, etc.) in FUEL_SLOT (default: slot 3).
     4. The area in front of the turtle needs to be clear for a 6x6 farm grid.
@@ -130,7 +130,7 @@ local function safeBack()
     local success = attemptMove(turtle.back, turtle.dig)
     updatePosition("back", success)
     return success
-}
+end
 
 local function safeUp()
     local success = attemptMove(turtle.up, turtle.digUp)
@@ -317,7 +317,7 @@ local function harvest2x2Tree()
     -- Save current position and direction to return to it after harvesting.
     local originalX, originalY, originalZ, originalDir = currentX, currentY, currentZ, currentDir
 
-    turtle.select(1) -- Select slot 1, assuming it contains an axe/pickaxe for digging.
+    -- Removed: turtle.select(1) as the pickaxe is attached to the side.
 
     -- Harvest the 4 base logs of the 2x2 tree.
     -- The tree trunks are at (0,0), (0,1), (1,0), (1,1) relative to the sapling origin.
@@ -332,7 +332,7 @@ local function harvest2x2Tree()
     turtle.dig()       -- Dig fourth base log.
     safeBack()         -- Move back to (1,0).
     safeBack()         -- Move back to (1,-1) (relative to origin of 2x2 area).
-    safeTurnLeft()     -- Turn left (now facing north, back at (0,0) of the 2x2 area).
+    safeTurnLeft()     -- Turn left (now facing north, back at (0,0) of the 2x2 area)
 
     -- Now, go up and harvest the rest of the tree (logs and leaves).
     -- Spruce trees can grow quite tall (up to ~30 blocks).
@@ -398,11 +398,10 @@ local function harvestFarm()
 -- Main program loop
 local function main()
     print("Spruce Tree Farm Automation Started!")
-    print("Ensure an axe/pickaxe is in slot 1, saplings in slot " .. SAPLING_SLOT .. ", and fuel in slot " .. FUEL_SLOT .. ".")
+    print("Ensure a pickaxe/axe is attached as a peripheral, saplings in slot " .. SAPLING_SLOT .. ", and fuel in slot " .. FUEL_SLOT .. ".")
     print("Place a chest directly behind the turtle for surplus items.")
     
-    -- Initial setup: Ensure turtle has an axe/pickaxe in slot 1 for digging.
-    turtle.select(1)
+    -- Initial setup: No need to select slot 1 if the pickaxe is a peripheral.
 
     -- The main farming cycle runs indefinitely.
     while true do
