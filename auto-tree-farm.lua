@@ -1,61 +1,18 @@
---[[
-    Spruce Tree Farm Automation for CC: Tweaked Turtles
+local FUEL_SLOT = 1
+local SAPLING_SLOT = 2
 
-    This program automates the process of planting, growing, and harvesting
-    spruce trees in a 2x2 grid pattern. Spruce trees grow as 2x2 blocks
-    and benefit from a 1-block clear space around their base for faster growth.
-
-    Features:
-    - Plants 4 spruce trees in a 2x2 grid with optimal spacing.
-    - Waits for trees to grow.
-    - Intelligently harvests trees by moving up and digging.
-    - Replants saplings after harvesting.
-    - Deposits surplus logs and saplings into a chest placed directly behind
-      the turtle's starting position.
-    - Automatically refuels the turtle when necessary from a designated slot.
-    - Includes basic stuck detection and recovery by attempting to dig obstacles.
-
-    Setup:
-    1. Place your turtle facing forward (e.g., North).
-    2. Place a chest directly behind the turtle.
-    3. Ensure the turtle has:
-        - An axe/pickaxe attached as a peripheral (e.g., on the side).
-        - Spruce saplings in SAPLING_SLOT (default: slot 2).
-        - Fuel (coal, charcoal, etc.) in FUEL_SLOT (default: slot 3).
-    4. The area in front of the turtle needs to be clear for a 6x6 farm grid.
-       The turtle will manage its own movement within this grid.
-]]--
-
--- Constants
-local SAPLING_SLOT = 2 -- The inventory slot where spruce saplings are kept.
-local FUEL_SLOT = 3    -- The inventory slot where fuel (e.g., coal, charcoal) is kept.
-local CHEST_SLOT = 16  -- A temporary slot used for managing inventory when dropping items.
-                       -- This should ideally be an empty slot or one not critical for operations.
-
--- Configuration for the farm layout
--- This table defines the relative (x, z) coordinates for the top-left corner
--- of each 2x2 sapling planting area.
--- The turtle starts at (0,0) of the farm grid, facing "north" (negative Z).
--- Each tree plot (including its 1-block border for optimal growth) is 3x3 blocks.
--- This layout creates a 2x2 grid of spruce trees with 1-block spacing between their
--- 3x3 growth areas, resulting in a total farm area of 6x6 blocks.
-local TREE_PLOTS = {
-    {x = 0, z = 0}, -- Tree 1: Top-left tree
-    {x = 0, z = 3}, -- Tree 2: Top-right tree (3 blocks along Z from Tree 1's origin)
-    {x = 3, z = 0}, -- Tree 3: Bottom-left tree (3 blocks along X from Tree 1's origin)
-    {x = 3, z = 3}  -- Tree 4: Bottom-right tree (3 blocks along X and Z from Tree 1's origin)
+local TREE_PLOT = {
+    {x = 0, z = 0},
+    {x = 0, z = 3},
+    {x = 3, z = 0},
+    {x = 3, z = 3}
 }
 
--- Global state for turtle's current relative position and direction
--- These variables track the turtle's position relative to its starting point (0,0,0)
--- and its current facing direction. "north" corresponds to its initial forward direction.
 local currentX = 0
-local currentY = 0
+local currentY = 0 
 local currentZ = 0
-local currentDir = "north" -- "north", "east", "south", "west"
+local currentDir = "north"
 
--- Helper function to update the turtle's internal position tracking
--- This is crucial for the `moveToRelative` function to work correctly.
 local function updatePosition(moveType, success)
     if not success then return end -- Only update if the move was successful
 
@@ -90,10 +47,6 @@ local function updatePosition(moveType, success)
     end
 end
 
--- Function to safely attempt a turtle movement, handling obstacles by digging.
--- `moveFunc`: The turtle movement function (e.g., `turtle.forward`).
--- `digFunc`: The corresponding digging function (e.g., `turtle.dig`, `turtle.digUp`).
--- Returns true if the move was successful, false otherwise (though it will error out on persistent blockages).
 local function attemptMove(moveFunc, digFunc)
     local success, reason = moveFunc()
     if not success then
@@ -119,7 +72,6 @@ local function attemptMove(moveFunc, digFunc)
     return success
 end
 
--- Wrapper functions for turtle movements that update internal position and handle stuck situations.
 local function safeForward()
     local success = attemptMove(turtle.forward, turtle.dig)
     updatePosition("forward", success)
@@ -145,27 +97,24 @@ local function safeDown()
 end
 
 local function safeTurnLeft()
-    local success = attemptMove(turtle.turnLeft) -- No digging for turning
+    local success = attemptMove(turtle.turnLeft)
     updatePosition("turnLeft", success)
     return success
 end
 
 local function safeTurnRight()
-    local success = attemptMove(turtle.turnRight) -- No digging for turning
+    local success = attemptMove(turtle.turnRight)
     updatePosition("turnRight", success)
     return success
 end
 
--- Refuels the turtle if its fuel level falls below a certain threshold.
--- Checks the designated FUEL_SLOT for fuel items.
 local function refuel()
-    -- Refuel when fuel is below 20% of its limit.
     if turtle.getFuelLevel() < turtle.getFuelLimit() * 0.2 then
         print("Fuel low. Attempting to refuel.")
-        local currentSlot = turtle.getSelectedSlot() -- Save current selected slot
-        turtle.select(FUEL_SLOT) -- Select the fuel slot
-        local success = turtle.refuel() -- Attempt to refuel
-        turtle.select(currentSlot) -- Restore original selected slot
+        local currentSlot = turtle.getSelectedSlot() 
+        turtle.select(FUEL_SLOT) 
+        local success = turtle.refuel()
+        turtle.select(currentSlot)
         if success then
             print("Refueled successfully. Current fuel: " .. turtle.getFuelLevel())
         else
@@ -175,35 +124,27 @@ local function refuel()
     end
 end
 
--- Deposits all items from the turtle's inventory (except saplings) into a chest.
--- Assumes the chest is directly behind the turtle's starting position.
 local function depositItems()
     print("Depositing surplus items into chest.")
-    -- Save the turtle's current position and direction to return to it later.
     local originalX, originalY, originalZ, originalDir = currentX, currentY, currentZ, currentDir
-    
-    -- Turn 180 degrees to face the chest. The turtle remains on its original block.
+
     safeTurnLeft()
     safeTurnLeft()
 
-    -- Iterate through all inventory slots.
     for i = 1, 16 do
-        if i ~= SAPLING_SLOT then -- Do NOT drop saplings, they are needed for replanting.
+        if i ~= SAPLING_SLOT or i ~= FUEL_SLOT then
             turtle.select(i)
             local item = turtle.getItemDetail()
             if item then
                 print("Dropping " .. item.count .. " " .. item.name .. " from slot " .. i .. ".")
-                -- Drop items forward, which is now into the chest behind the turtle's original position.
                 turtle.drop() 
             end
         end
     end
     
-    -- Turn back to the original orientation.
     safeTurnLeft()
     safeTurnLeft()
     
-    -- Reset internal position tracking to reflect the actual movement (no change in position).
     currentX, currentY, currentZ, currentDir = originalX, originalY, originalZ, originalDir
     print("Finished depositing items.")
 end
