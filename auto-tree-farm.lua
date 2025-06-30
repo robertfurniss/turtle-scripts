@@ -27,8 +27,8 @@
 ]]--
 
 -- Constants
-local SAPLING_SLOT = 1 -- The inventory slot where spruce saplings are kept.
-local FUEL_SLOT = 2    -- The inventory slot where fuel (e.g., coal, charcoal) is kept.
+local SAPLING_SLOT = 2 -- The inventory slot where spruce saplings are kept.
+local FUEL_SLOT = 3    -- The inventory slot where fuel (e.g., coal, charcoal) is kept.
 local CHEST_SLOT = 16  -- A temporary slot used for managing inventory when dropping items.
                        -- This should ideally be an empty slot or one not critical for operations.
 
@@ -195,7 +195,7 @@ local function refuel()
     end
 end
 
--- Deposits all items from the turtle's inventory (except saplings) into a chest.
+-- Deposits all items from the turtle's inventory (except saplings and fuel) into a chest.
 -- Assumes the chest is directly behind the turtle's starting position.
 local function depositItems()
     print("Depositing surplus items into chest.")
@@ -208,7 +208,8 @@ local function depositItems()
 
     -- Iterate through all inventory slots.
     for i = 1, 16 do
-        if i ~= SAPLING_SLOT then -- Do NOT drop saplings, they are needed for replanting.
+        -- Do NOT drop saplings or fuel, they are needed for operations.
+        if i ~= SAPLING_SLOT and i ~= FUEL_SLOT then
             -- Explicit checks for turtle inventory functions
             if not turtle or type(turtle.select) ~= "function" or type(turtle.getItemDetail) ~= "function" or type(turtle.drop) ~= "function" then
                 error("Turtle inventory functions (select/getItemDetail/drop) are missing/corrupted during deposit.")
@@ -276,9 +277,17 @@ local function plant2x2Tree()
     end
 
     turtle.select(SAPLING_SLOT) -- Select the sapling slot
+    
+    -- Robust check for getItemCount return value
+    local saplingCount = turtle.getItemCount(SAPLING_SLOT)
+    if type(saplingCount) ~= "number" then
+        print("Error: turtle.getItemCount did not return a number for slot " .. SAPLING_SLOT .. ". Got: " .. tostring(saplingCount))
+        error("Unexpected return from getItemCount. Program halted.")
+    end
+
     -- Check if enough saplings are available.
-    if turtle.getItemCount(SAPLING_SLOT) < 4 then -- LINE 239
-        print("Not enough saplings to plant a 2x2 tree. Need 4, have " .. turtle.getItemCount(SAPLING_SLOT) .. ".")
+    if saplingCount < 4 then -- LINE 239
+        print("Not enough saplings to plant a 2x2 tree. Need 4, have " .. saplingCount .. ".")
         error("Insufficient saplings. Program halted.")
     end
 
