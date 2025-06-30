@@ -298,7 +298,7 @@ local function plant2x2Tree()
     local originalX, originalY, originalZ, originalDir = currentX, currentY, currentZ, currentDir
 
     -- Explicit checks for turtle inventory/placement functions
-    if not turtle or type(turtle.select) ~= "function" or type(turtle.getItemCount) ~= "function" or type(turtle.placeDown) ~= "function" then
+    if not turtle or type(turtle.select) ~= "function" or type(turtle.getItemCount) ~= "function" or type(turtle.placeDown) ~= "function" or type(turtle.placeUp) ~= "function" then
         error("Turtle inventory/placement functions are missing/corrupted during planting.")
     end
 
@@ -338,25 +338,26 @@ local function plant2x2Tree()
         local targetPlotX = originalX + pos.x
         local targetPlotZ = originalZ + pos.z
         
-        -- Move to the exact position for this plant
+        -- Move to the exact position for this plant (ground level, Y=0, which is currently a hole)
         moveToRelative(targetPlotX, originalY, targetPlotZ)
 
         local currentSelected = turtle.getSelectedSlot() -- Save current selected slot
         
-        -- Place dirt first (to fill the hole from harvesting)
+        -- Step 1: Place dirt to fill the hole at Y=0
+        safeUp() -- Move turtle to Y=1 (one block above the hole)
         turtle.select(DIRT_SLOT)
-        local dirtSuccess, dirtReason = turtle.placeDown()
+        local dirtSuccess, dirtReason = turtle.placeDown() -- Places dirt at Y=0 (into the hole)
         if not dirtSuccess then
             print("Warning: Failed to place dirt at (" .. targetPlotX .. "," .. originalY .. "," .. targetPlotZ .. "): " .. (dirtReason or "Unknown"))
-            -- If dirt cannot be placed, sapling cannot be planted. Error out.
             error("Failed to place ground block. Program halted.")
         end
+        safeDown() -- Move turtle back to Y=0, now standing on the newly placed dirt
 
-        -- Then place sapling on top of the dirt
+        -- Step 2: Place sapling on top of the dirt (at Y=1)
         turtle.select(SAPLING_SLOT)
-        local saplingSuccess, saplingReason = turtle.placeDown()
+        local saplingSuccess, saplingReason = turtle.placeUp() -- Places sapling at Y=1 (on top of the dirt)
         if not saplingSuccess then
-            print("Warning: Failed to plant sapling at (" .. targetPlotX .. "," .. originalY .. "," .. targetPlotZ .. "): " .. (saplingReason or "Unknown"))
+            print("Warning: Failed to plant sapling at (" .. targetPlotX .. "," .. (originalY+1) .. "," .. targetPlotZ .. "): " .. (saplingReason or "Unknown"))
             error("Failed to plant sapling. Program halted.")
         end
         turtle.select(currentSelected) -- Restore original selected slot
@@ -425,9 +426,12 @@ local function harvest2x2Tree()
         local targetPlotX = originalX + pos.x
         local targetPlotZ = originalZ + pos.z
         
-        moveToRelative(targetPlotX, originalY, targetPlotZ)
-        local success, reason = turtle.digDown() -- Dig the block the turtle is standing on
-        if not success then print("Warning: Failed to dig down at (" .. targetPlotX .. "," .. originalY .. "," .. targetPlotZ .. "): " .. (reason or "Unknown")) end
+        moveToRelative(targetPlotX, originalY, targetPlotZ) -- Turtle is at ground level (Y=0, on the tree base)
+        
+        safeUp() -- Move up to Y=1
+        local success, reason = turtle.digDown() -- Digs the block at Y=0 (the tree base)
+        if not success then print("Warning: Failed to dig down tree base at (" .. targetPlotX .. "," .. originalY .. "," .. targetPlotZ .. "): " .. (reason or "Unknown")) end
+        safeDown() -- Move back down to Y=0
     end
 
     -- Return to the original starting position of this 2x2 plot after digging base logs.
