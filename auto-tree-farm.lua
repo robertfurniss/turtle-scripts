@@ -281,7 +281,7 @@ end
 local function plantFarm()
     print("Starting planting phase for the entire farm.")
     -- Save current position and direction to return to the farm's origin.
-    local originalX, originalY, originalZ, originalDir = currentX, currentY, currentZ, currentDir
+    local originalX, originalY, originalZ, originalDir = currentX, currentY, currentZ, originalDir
     
     -- Ensure turtle is at the farm's origin (0,0,0) and facing north before starting.
     moveToRelative(0, 0, 0)
@@ -316,8 +316,6 @@ local function harvest2x2Tree()
     print("Harvesting 2x2 spruce tree.")
     -- Save current position and direction to return to it after harvesting.
     local originalX, originalY, originalZ, originalDir = currentX, currentY, currentZ, currentDir
-
-    -- Removed: turtle.select(1) as the pickaxe is attached to the side.
 
     -- Harvest the 4 base logs of the 2x2 tree.
     -- The tree trunks are at (0,0), (0,1), (1,0), (1,1) relative to the sapling origin.
