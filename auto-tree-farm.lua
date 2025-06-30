@@ -379,12 +379,13 @@ local function plant2x2Tree()
         
         -- Move to the exact position for this plant (ground level, Y=0, which is currently a hole)
         moveToRelative(targetPlotX, originalY, targetPlotZ)
+        print("Debug: Plant - Moved to (" .. currentX .. "," .. currentY .. "," .. currentZ .. ") for planting.")
 
         local currentSelected = turtle.getSelectedSlot() -- Save current selected slot
         
         -- Step 1: Place dirt to fill the hole at Y=0
         safeUp() -- Move turtle to Y=1 (one block above the hole)
-        print("Debug: At (" .. currentX .. "," .. currentY .. "," .. currentZ .. ") attempting to place dirt at Y=" .. originalY)
+        print("Debug: Plant - At (" .. currentX .. "," .. currentY .. "," .. currentZ .. ") attempting to place dirt at Y=" .. originalY .. ".")
         turtle.select(DIRT_SLOT)
         local dirtSuccess, dirtReason = turtle.placeDown() -- Places dirt at Y=0 (into the hole)
         if not dirtSuccess then
@@ -392,18 +393,10 @@ local function plant2x2Tree()
             error("Failed to place ground block. Program halted.")
         end
         safeDown() -- Move turtle back to Y=0, now standing on the newly placed dirt
-        print("Debug: At (" .. currentX .. "," .. currentY .. "," .. currentZ .. ") after placing dirt.")
+        print("Debug: Plant - At (" .. currentX .. "," .. currentY .. "," .. currentZ .. ") after placing dirt.")
 
-        -- Step 2: Ensure the space above is clear before placing sapling
-        print("Debug: Attempting to clear space above for sapling.")
-        local digUpSuccess, digUpReason = turtle.digUp()
-        if not digUpSuccess then
-            print("Warning: Failed to dig up before sapling placement at (" .. targetPlotX .. "," .. (originalY+1) .. "," .. targetPlotZ .. "): " .. (digUpReason or "Unknown") .. ". This might be okay if already clear.")
-            -- This is a warning, as sometimes it's already clear.
-        end
-
-        -- Step 3: Place sapling on top of the dirt (at Y=1)
-        print("Debug: At (" .. currentX .. "," .. currentY .. "," .. currentZ .. ") attempting to place sapling at Y=" .. (originalY+1))
+        -- Step 2: Place sapling on top of the dirt (at Y=1)
+        print("Debug: Plant - At (" .. currentX .. "," .. currentY .. "," .. currentZ .. ") attempting to place sapling at Y=" .. (originalY+1) .. ".")
         turtle.select(SAPLING_SLOT)
         local saplingSuccess, saplingReason = turtle.placeUp() -- Places sapling at Y=1 (on top of the dirt)
         if not saplingSuccess then
@@ -411,7 +404,7 @@ local function plant2x2Tree()
             error("Failed to plant sapling. Program halted.")
         end
         turtle.select(currentSelected) -- Restore original selected slot
-        print("Debug: Finished placing sapling.")
+        print("Debug: Plant - Finished placing sapling.")
     end
 
     -- Return to the original starting position of this 2x2 plot after planting all saplings.
@@ -478,11 +471,14 @@ local function harvest2x2Tree()
         local targetPlotZ = originalZ + pos.z
         
         moveToRelative(targetPlotX, originalY, targetPlotZ) -- Turtle is at ground level (Y=0, on the tree base)
+        print("Debug: Harvest - Moved to (" .. currentX .. "," .. currentY .. "," .. currentZ .. ") for digging base.")
         
         safeUp() -- Move up to Y=1
+        print("Debug: Harvest - At (" .. currentX .. "," .. currentY .. "," .. currentZ .. ") attempting to digDown tree base at Y=" .. originalY .. ".")
         local success, reason = turtle.digDown() -- Digs the block at Y=0 (the tree base)
         if not success then print("Warning: Failed to dig down tree base at (" .. targetPlotX .. "," .. originalY .. "," .. targetPlotZ .. "): " .. (reason or "Unknown")) end
         safeDown() -- Move back down to Y=0
+        print("Debug: Harvest - At (" .. currentX .. "," .. currentY .. "," .. currentZ .. ") after digging base.")
     end
 
     -- Return to the original starting position of this 2x2 plot after digging base logs.
@@ -496,6 +492,7 @@ local function harvest2x2Tree()
     while currentHeight < maxHarvestHeight do
         if turtle.detectUp() then -- Check if there's a block directly above.
             safeUp() -- Move up.
+            print("Debug: Harvest - At (" .. currentX .. "," .. currentY .. "," .. currentZ .. ") attempting to digDown at height " .. currentHeight .. ".")
             success, reason = turtle.digDown() -- Dig the block it just moved off of (leaves or logs).
             if not success then print("Warning: Failed to dig down at height " .. currentHeight .. ": " .. (reason or "Unknown")) end
             currentHeight = currentHeight + 1
@@ -507,6 +504,7 @@ local function harvest2x2Tree()
     -- Come back down to ground level, digging any remaining blocks on the way down.
     while currentY > originalY do
         safeDown() -- Move down.
+        print("Debug: Harvest - At (" .. currentX .. "," .. currentY .. "," .. currentZ .. ") attempting to digUp while descending.")
         success, reason = turtle.digUp() -- Dig any blocks below (leaves or logs) that might have been missed.
         if not success then print("Warning: Failed to dig up while descending: " .. (reason or "Unknown")) end
     end
