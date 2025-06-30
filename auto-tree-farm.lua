@@ -286,7 +286,7 @@ local function plant2x2Tree()
     end
 
     -- Check if enough saplings are available.
-    if saplingCount < 4 then -- LINE 239
+    if saplingCount < 4 then -- This is approximately line 239 in the original context, now with robust check above.
         print("Not enough saplings to plant a 2x2 tree. Need 4, have " .. saplingCount .. ".")
         error("Insufficient saplings. Program halted.")
     end
