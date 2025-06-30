@@ -182,10 +182,9 @@ local function depositItems()
     -- Save the turtle's current position and direction to return to it later.
     local originalX, originalY, originalZ, originalDir = currentX, currentY, currentZ, currentDir
     
-    -- Turn 180 degrees to face the chest and move one block back.
+    -- Turn 180 degrees to face the chest. The turtle remains on its original block.
     safeTurnLeft()
     safeTurnLeft()
-    safeForward()
 
     -- Iterate through all inventory slots.
     for i = 1, 16 do
@@ -194,17 +193,17 @@ local function depositItems()
             local item = turtle.getItemDetail()
             if item then
                 print("Dropping " .. item.count .. " " .. item.name .. " from slot " .. i .. ".")
-                turtle.drop() -- Drop all items from the current slot.
+                -- Drop items forward, which is now into the chest behind the turtle's original position.
+                turtle.drop() 
             end
         end
     end
     
-    -- Return to the original position and orientation.
-    safeBack()
+    -- Turn back to the original orientation.
     safeTurnLeft()
     safeTurnLeft()
     
-    -- Reset internal position tracking to reflect the actual movement.
+    -- Reset internal position tracking to reflect the actual movement (no change in position).
     currentX, currentY, currentZ, currentDir = originalX, originalY, originalZ, originalDir
     print("Finished depositing items.")
 end
@@ -243,7 +242,7 @@ end
 -- Plants a 2x2 square of spruce saplings at the turtle's current location.
 -- Assumes the turtle is at the top-left corner of the 2x2 planting area, facing north.
 local function plant2x2Tree()
-    print("Planting 2x2 spruce saplings.")
+    print("Attempting to plant 2x2 spruce saplings.")
     -- Save current position and direction to ensure the turtle returns to its exact spot.
     local originalX, originalY, originalZ, originalDir = currentX, currentY, currentZ, currentDir
 
@@ -259,15 +258,23 @@ local function plant2x2Tree()
     -- 3 4
     -- (Relative to the turtle's starting point for planting this 2x2)
     
-    turtle.placeDown() -- Plant sapling 1 (at current position)
+    local success, reason = turtle.placeDown() -- Plant sapling 1 (at current position)
+    if not success then print("Warning: Failed to plant sapling at (0,0) of plot: " .. (reason or "Unknown")) end
+
     safeForward()      -- Move one block forward
-    turtle.placeDown() -- Plant sapling 2
+    success, reason = turtle.placeDown() -- Plant sapling 2
+    if not success then print("Warning: Failed to plant sapling at (0,1) of plot: " .. (reason or "Unknown")) end
+
     safeBack()         -- Move back to original Z
     safeTurnRight()    -- Turn right (now facing east)
     safeForward()      -- Move one block right (now at (1,0) of the 2x2 area)
-    turtle.placeDown() -- Plant sapling 3
+    success, reason = turtle.placeDown() -- Plant sapling 3
+    if not success then print("Warning: Failed to plant sapling at (1,0) of plot: " .. (reason or "Unknown")) end
+
     safeForward()      -- Move one block forward (now at (1,1) of the 2x2 area)
-    turtle.placeDown() -- Plant sapling 4
+    success, reason = turtle.placeDown() -- Plant sapling 4
+    if not success then print("Warning: Failed to plant sapling at (1,1) of plot: " .. (reason or "Unknown")) end
+
     safeBack()         -- Move back to (1,0)
     safeBack()         -- Move back to (1,-1) (relative to origin of 2x2 area)
     safeTurnLeft()     -- Turn left (now facing north, back at (0,0) of the 2x2 area)
@@ -281,7 +288,7 @@ end
 local function plantFarm()
     print("Starting planting phase for the entire farm.")
     -- Save current position and direction to return to the farm's origin.
-    local originalX, originalY, originalZ, originalDir = currentX, currentY, currentZ, originalDir
+    local originalX, originalY, originalZ, originalDir = currentX, currentY, currentZ, currentDir
     
     -- Ensure turtle is at the farm's origin (0,0,0) and facing north before starting.
     moveToRelative(0, 0, 0)
@@ -300,7 +307,7 @@ local function plantFarm()
     -- Restore the turtle's initial starting position and orientation.
     currentX, currentY, currentZ, currentDir = originalX, originalY, originalZ, originalDir
     print("Finished planting farm.")
-end
+}
 
 -- Waits for trees to grow.
 -- Spruce trees can take a while to grow, so a longer sleep duration is used.
@@ -308,7 +315,7 @@ local function waitForGrowth()
     print("Waiting for trees to grow (5 minutes).")
     os.sleep(300) -- Wait for 300 seconds (5 real-world minutes).
     print("Finished waiting.")
-end
+}
 
 -- Harvests a single 2x2 spruce tree at the turtle's current location.
 -- Assumes the turtle is at the top-left corner of the 2x2 sapling area, facing north.
@@ -319,15 +326,23 @@ local function harvest2x2Tree()
 
     -- Harvest the 4 base logs of the 2x2 tree.
     -- The tree trunks are at (0,0), (0,1), (1,0), (1,1) relative to the sapling origin.
-    turtle.dig()       -- Dig the block under the turtle (first base log).
+    local success, reason = turtle.dig()       -- Dig the block under the turtle (first base log).
+    if not success then print("Warning: Failed to dig at (0,0) of plot: " .. (reason or "Unknown")) end
+
     safeForward()      -- Move one block forward.
-    turtle.dig()       -- Dig second base log.
+    success, reason = turtle.dig()       -- Dig second base log.
+    if not success then print("Warning: Failed to dig at (0,1) of plot: " .. (reason or "Unknown")) end
+
     safeBack()         -- Move back to original Z.
     safeTurnRight()    -- Turn right (now facing east).
     safeForward()      -- Move one block right.
-    turtle.dig()       -- Dig third base log.
+    success, reason = turtle.dig()       -- Dig third base log.
+    if not success then print("Warning: Failed to dig at (1,0) of plot: " .. (reason or "Unknown")) end
+
     safeForward()      -- Move one block forward.
-    turtle.dig()       -- Dig fourth base log.
+    success, reason = turtle.dig()       -- Dig fourth base log.
+    if not success then print("Warning: Failed to dig at (1,1) of plot: " .. (reason or "Unknown")) end
+
     safeBack()         -- Move back to (1,0).
     safeBack()         -- Move back to (1,-1) (relative to origin of 2x2 area).
     safeTurnLeft()     -- Turn left (now facing north, back at (0,0) of the 2x2 area)
@@ -340,7 +355,8 @@ local function harvest2x2Tree()
     while currentHeight < maxHarvestHeight do
         if turtle.detectUp() then -- Check if there's a block directly above.
             safeUp() -- Move up.
-            turtle.digDown() -- Dig the block it just moved off of (leaves or logs).
+            success, reason = turtle.digDown() -- Dig the block it just moved off of (leaves or logs).
+            if not success then print("Warning: Failed to dig down at height " .. currentHeight .. ": " .. (reason or "Unknown")) end
             currentHeight = currentHeight + 1
         else
             break -- No more blocks above, reached the top of the tree (or max height).
@@ -350,7 +366,8 @@ local function harvest2x2Tree()
     -- Come back down to ground level, digging any remaining blocks on the way down.
     while currentY > originalY do
         safeDown() -- Move down.
-        turtle.digUp() -- Dig any blocks below (leaves or logs) that might have been missed.
+        success, reason = turtle.digUp() -- Dig any blocks below (leaves or logs) that might have been missed.
+        if not success then print("Warning: Failed to dig up while descending: " .. (reason or "Unknown")) end
     end
     
     -- Collect all dropped items around the turtle.
@@ -391,7 +408,7 @@ local function harvestFarm()
     -- Restore the turtle's initial starting position and orientation.
     currentX, currentY, currentZ, currentDir = originalX, originalY, originalZ, originalDir
     print("Finished harvesting farm.")
-end
+}
 
 -- Main program loop
 local function main()
