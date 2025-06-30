@@ -208,15 +208,17 @@ local function depositItems()
     safeTurnLeft()
     safeTurnLeft()
 
-    -- First, consolidate all fuel into the FUEL_SLOT
     local currentSelected = turtle.getSelectedSlot() -- Save current selected slot
+
+    -- --- CONSOLIDATE ESSENTIAL ITEMS INTO THEIR DESIGNATED SLOTS ---
+
+    -- Consolidate Fuel (e.g., charcoal)
     for i = 1, 16 do
         if i ~= FUEL_SLOT then -- Only check slots that are not the primary fuel slot
             turtle.select(i)
             local item = turtle.getItemDetail()
             if item then
-                -- Check if the item is a fuel source. A simple way is to try to refuel 0 units.
-                -- This will return true if it's fuel, false otherwise, without consuming it.
+                -- Check if the item is a fuel source. refuel(0) returns true if it's fuel.
                 local isFuel = turtle.refuel(0)
                 if isFuel then
                     print("Found fuel (" .. item.name .. ") in slot " .. i .. ". Transferring to slot " .. FUEL_SLOT .. ".")
@@ -225,12 +227,54 @@ local function depositItems()
             end
         end
     end
-    turtle.select(currentSelected) -- Restore original selected slot
-    print("Finished consolidating fuel before deposit.")
+    
+    -- Consolidate Dirt/Grass Blocks
+    local DIRT_NAMES = {
+        "minecraft:dirt", "minecraft:grass_block", "minecraft:coarse_dirt",
+        "minecraft:rooted_dirt", "minecraft:podzol", "minecraft:mycelium"
+    }
+    for i = 1, 16 do
+        if i ~= DIRT_SLOT then -- Only check slots that are not the primary dirt slot
+            turtle.select(i)
+            local item = turtle.getItemDetail()
+            if item then
+                for _, name in ipairs(DIRT_NAMES) do
+                    if item.name == name then
+                        print("Found dirt (" .. item.name .. ") in slot " .. i .. ". Transferring to slot " .. DIRT_SLOT .. ".")
+                        turtle.transferTo(DIRT_SLOT)
+                        break -- Found and transferred, move to next slot
+                    end
+                end
+            end
+        end
+    end
 
+    -- Consolidate Saplings (assuming only spruce saplings for this farm)
+    local SAPLING_NAMES = { "minecraft:spruce_sapling" }
+    for i = 1, 16 do
+        if i ~= SAPLING_SLOT then -- Only check slots that are not the primary sapling slot
+            turtle.select(i)
+            local item = turtle.getItemDetail()
+            if item then
+                for _, name in ipairs(SAPLING_NAMES) do
+                    if item.name == name then
+                        print("Found sapling (" .. item.name .. ") in slot " .. i .. ". Transferring to slot " .. SAPLING_SLOT .. ".")
+                        turtle.transferTo(SAPLING_SLOT)
+                        break -- Found and transferred, move to next slot
+                    end
+                end
+            end
+        end
+    end
+
+    turtle.select(currentSelected) -- Restore original selected slot
+    print("Finished consolidating essential items before deposit.")
+
+    -- --- DROP SURPLUS ITEMS ---
     -- Now, iterate through all inventory slots to drop non-essential items.
     for i = 1, 16 do
-        -- Do NOT drop saplings, fuel, or dirt, they are needed for operations.
+        -- Do NOT drop saplings, fuel, or dirt from their designated slots.
+        -- Items of these types that were in other slots should have been consolidated above.
         if i ~= SAPLING_SLOT and i ~= FUEL_SLOT and i ~= DIRT_SLOT then
             -- Explicit checks for turtle inventory functions
             if not turtle or type(turtle.select) ~= "function" or type(turtle.getItemDetail) ~= "function" or type(turtle.drop) ~= "function" then
@@ -240,7 +284,6 @@ local function depositItems()
             local item = turtle.getItemDetail()
             if item then
                 print("Dropping " .. item.count .. " " .. item.name .. " from slot " .. i .. ".")
-                -- Drop items forward, which is now into the chest behind the turtle's original position.
                 turtle.drop() 
             end
         end
@@ -341,6 +384,7 @@ local function plant2x2Tree()
         
         -- Step 1: Place dirt to fill the hole at Y=0
         safeUp() -- Move turtle to Y=1 (one block above the hole)
+        print("Debug: At (" .. currentX .. "," .. currentY .. "," .. currentZ .. ") attempting to place dirt at Y=" .. originalY)
         turtle.select(DIRT_SLOT)
         local dirtSuccess, dirtReason = turtle.placeDown() -- Places dirt at Y=0 (into the hole)
         if not dirtSuccess then
@@ -348,8 +392,18 @@ local function plant2x2Tree()
             error("Failed to place ground block. Program halted.")
         end
         safeDown() -- Move turtle back to Y=0, now standing on the newly placed dirt
+        print("Debug: At (" .. currentX .. "," .. currentY .. "," .. currentZ .. ") after placing dirt.")
 
-        -- Step 2: Place sapling on top of the dirt (at Y=1)
+        -- Step 2: Ensure the space above is clear before placing sapling
+        print("Debug: Attempting to clear space above for sapling.")
+        local digUpSuccess, digUpReason = turtle.digUp()
+        if not digUpSuccess then
+            print("Warning: Failed to dig up before sapling placement at (" .. targetPlotX .. "," .. (originalY+1) .. "," .. targetPlotZ .. "): " .. (digUpReason or "Unknown") .. ". This might be okay if already clear.")
+            -- This is a warning, as sometimes it's already clear.
+        end
+
+        -- Step 3: Place sapling on top of the dirt (at Y=1)
+        print("Debug: At (" .. currentX .. "," .. currentY .. "," .. currentZ .. ") attempting to place sapling at Y=" .. (originalY+1))
         turtle.select(SAPLING_SLOT)
         local saplingSuccess, saplingReason = turtle.placeUp() -- Places sapling at Y=1 (on top of the dirt)
         if not saplingSuccess then
@@ -357,6 +411,7 @@ local function plant2x2Tree()
             error("Failed to plant sapling. Program halted.")
         end
         turtle.select(currentSelected) -- Restore original selected slot
+        print("Debug: Finished placing sapling.")
     end
 
     -- Return to the original starting position of this 2x2 plot after planting all saplings.
@@ -395,7 +450,7 @@ local function waitForGrowth()
     print("Waiting for trees to grow (5 minutes).")
     os.sleep(300) -- Wait for 300 seconds (5 real-world minutes).
     print("Finished waiting.")
-end
+}
 
 -- Harvests a single 2x2 spruce tree at the turtle's current location.
 -- Assumes the turtle is at the top-left corner of the 2x2 sapling area, facing north.
