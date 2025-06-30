@@ -20,17 +20,17 @@
     2. Place a chest directly behind the turtle.
     3. Ensure the turtle has:
         - An axe/pickaxe attached as a peripheral (e.g., on the side).
+        - Fuel (coal, charcoal, etc.) in FUEL_SLOT (default: slot 1).
         - Spruce saplings in SAPLING_SLOT (default: slot 2).
-        - Fuel (coal, charcoal, etc.) in FUEL_SLOT (default: slot 3).
-        - DIRT/GRASS BLOCKS in DIRT_SLOT (default: slot 1) for replanting ground.
+        - DIRT/GRASS BLOCKS in DIRT_SLOT (default: slot 4) for replanting ground.
     4. The area in front of the turtle needs to be clear for a 6x6 farm grid.
        The turtle will manage its own movement within this grid.
 ]]--
 
 -- Constants
-local DIRT_SLOT = 1    -- The inventory slot where dirt/grass blocks are kept for replanting ground.
+local FUEL_SLOT = 1    -- The inventory slot where fuel (e.g., coal, charcoal) is kept.
 local SAPLING_SLOT = 2 -- The inventory slot where spruce saplings are kept.
-local FUEL_SLOT = 3    -- The inventory slot where fuel (e.g., coal, charcoal) is kept.
+local DIRT_SLOT = 4    -- The inventory slot where dirt/grass blocks are kept for replanting ground.
 local CHEST_SLOT = 16  -- A temporary slot used for managing inventory when dropping items.
                        -- This should ideally be an empty slot or one not critical for operations.
 
@@ -221,7 +221,7 @@ local function consolidateFuel()
     print("Finished consolidating fuel.")
 end
 
--- Deposits all items from the turtle's inventory (except saplings and fuel) into a chest.
+-- Deposits all items from the turtle's inventory (except saplings, fuel, and dirt) into a chest.
 -- Assumes the chest is directly behind the turtle's starting position.
 local function depositItems()
     print("Depositing surplus items into chest.")
@@ -234,8 +234,8 @@ local function depositItems()
 
     -- Iterate through all inventory slots.
     for i = 1, 16 do
-        -- Do NOT drop saplings or fuel, they are needed for operations.
-        if i ~= SAPLING_SLOT and i ~= FUEL_SLOT and i ~= DIRT_SLOT then -- Also exclude DIRT_SLOT
+        -- Do NOT drop saplings, fuel, or dirt, they are needed for operations.
+        if i ~= SAPLING_SLOT and i ~= FUEL_SLOT and i ~= DIRT_SLOT then
             -- Explicit checks for turtle inventory functions
             if not turtle or type(turtle.select) ~= "function" or type(turtle.getItemDetail) ~= "function" or type(turtle.drop) ~= "function" then
                 error("Turtle inventory functions (select/getItemDetail/drop) are missing/corrupted during deposit.")
@@ -288,7 +288,7 @@ local function moveToRelative(targetX, targetY, targetZ)
     end
     
     print(string.format("Reached relative position: (%d, %d, %d).", currentX, currentY, currentZ))
-end -- This 'end' correctly closes the 'moveToRelative' function.
+end
 
 -- Plants a 2x2 square of spruce saplings at the turtle's current location.
 -- Assumes the turtle is at the top-left corner of the 2x2 planting area, facing north.
@@ -324,54 +324,46 @@ local function plant2x2Tree()
         error("Insufficient dirt/ground blocks. Program halted.")
     end
 
-    -- Helper to place dirt then sapling at current position
-    local function placeDirtAndSapling()
+    -- Define the 4 relative positions for planting within the 2x2 plot
+    local plantPositions = {
+        {x = 0, z = 0},
+        {x = 0, z = 1},
+        {x = 1, z = 0},
+        {x = 1, z = 1}
+    }
+
+    -- Iterate through each planting position
+    for _, pos in ipairs(plantPositions) do
+        -- Calculate absolute target position for this plant
+        local targetPlotX = originalX + pos.x
+        local targetPlotZ = originalZ + pos.z
+        
+        -- Move to the exact position for this plant
+        moveToRelative(targetPlotX, originalY, targetPlotZ)
+
         local currentSelected = turtle.getSelectedSlot() -- Save current selected slot
         
-        -- Place dirt first
+        -- Place dirt first (to fill the hole from harvesting)
         turtle.select(DIRT_SLOT)
         local dirtSuccess, dirtReason = turtle.placeDown()
         if not dirtSuccess then
-            print("Warning: Failed to place dirt: " .. (dirtReason or "Unknown"))
-            -- Optionally, if dirt placement is critical and failing, you could error out here.
-            -- For now, we'll just warn and attempt sapling placement.
+            print("Warning: Failed to place dirt at (" .. targetPlotX .. "," .. originalY .. "," .. targetPlotZ .. "): " .. (dirtReason or "Unknown"))
+            -- If dirt cannot be placed, sapling cannot be planted. Error out.
+            error("Failed to place ground block. Program halted.")
         end
 
         -- Then place sapling on top of the dirt
         turtle.select(SAPLING_SLOT)
         local saplingSuccess, saplingReason = turtle.placeDown()
         if not saplingSuccess then
-            print("Warning: Failed to plant sapling: " .. (saplingReason or "Unknown"))
-            -- This is critical, so we might want to error out if sapling fails.
+            print("Warning: Failed to plant sapling at (" .. targetPlotX .. "," .. originalY .. "," .. targetPlotZ .. "): " .. (saplingReason or "Unknown"))
             error("Failed to plant sapling. Program halted.")
         end
         turtle.select(currentSelected) -- Restore original selected slot
     end
 
-    -- Plant saplings in a 2x2 pattern:
-    -- 1 2
-    -- 3 4
-    -- (Relative to the turtle's starting point for planting this 2x2)
-    
-    placeDirtAndSapling() -- Plant sapling 1 (at current position)
-
-    safeForward()      -- Move one block forward
-    placeDirtAndSapling() -- Plant sapling 2
-
-    safeBack()         -- Move back to original Z
-    safeTurnRight()    -- Turn right (now facing east)
-    safeForward()      -- Move one block right (now at (1,0) of the 2x2 area)
-    placeDirtAndSapling() -- Plant sapling 3
-
-    safeForward()      -- Move one block forward (now at (1,1) of the 2x2 area)
-    placeDirtAndSapling() -- Plant sapling 4
-
-    safeBack()         -- Move back to (1,0)
-    safeBack()         -- Move back to (1,-1) (relative to origin of 2x2 area)
-    safeTurnLeft()     -- Turn left (now facing north, back at (0,0) of the 2x2 area)
-
-    -- Restore internal position tracking to original state after planting sequence.
-    currentX, currentY, currentZ, currentDir = originalX, originalY, originalZ, originalDir
+    -- Return to the original starting position of this 2x2 plot after planting all saplings.
+    moveToRelative(originalX, originalY, originalZ)
     print("Finished planting 2x2 saplings.")
 end
 
@@ -420,32 +412,62 @@ local function harvest2x2Tree()
         error("Turtle digging/sucking functions are missing/corrupted during harvest.")
     end
 
-    -- Harvest the 4 base logs of the 2x2 tree.
-    -- The tree trunks are at (0,0), (0,1), (1,0), (1,1) relative to the sapling origin.
-    local success, reason = turtle.dig()       -- Dig the block under the turtle (first base log).
-    if not success then print("Warning: Failed to dig at (0,0) of plot: " .. (reason or "Unknown")) end
+    -- Define the 4 relative positions for digging within the 2x2 plot
+    local digPositions = {
+        {x = 0, z = 0},
+        {x = 0, z = 1},
+        {x = 1, z = 0},
+        {x = 1, z = 1}
+    }
 
-    safeForward()      -- Move one block forward.
-    success, reason = turtle.dig()       -- Dig second base log.
-    if not success then print("Warning: Failed to dig at (0,1) of plot: " .. (reason or "Unknown")) end
+    -- Dig the 4 base logs of the 2x2 tree by moving to each position and digging down
+    for _, pos in ipairs(digPositions) do
+        local targetPlotX = originalX + pos.x
+        local targetPlotZ = originalZ + pos.z
+        
+        moveToRelative(targetPlotX, originalY, targetPlotZ)
+        local success, reason = turtle.digDown() -- Dig the block the turtle is standing on
+        if not success then print("Warning: Failed to dig down at (" .. targetPlotX .. "," .. originalY .. "," .. targetPlotZ .. "): " .. (reason or "Unknown")) end
+    end
 
-    safeBack()         -- Move back to original Z.
-    safeTurnRight()    -- Turn right (now facing east).
-    safeForward()      -- Move one block right.
-    success, reason = turtle.dig()       -- Dig third base log.
-    if not success then print("Warning: Failed to dig at (1,0) of plot: " .. (reason or "Unknown")) end
+    -- Return to the original starting position of this 2x2 plot after digging base logs.
+    moveToRelative(originalX, originalY, originalZ)
 
-    safeForward()      -- Move one block forward.
-    success, reason = turtle.dig() -- Corrected: Changed from turtle.placeDown() to turtle.dig()
-    if not success then print("Warning: Failed to dig at (1,1) of plot: " .. (reason or "Unknown")) end
+    -- Now, go up and harvest the rest of the tree (logs and leaves).
+    -- Spruce trees can grow quite tall (up to ~30 blocks).
+    local maxHarvestHeight = 25 -- Set a practical maximum height to ascend and dig.
+    local currentHeight = 0
 
-    safeBack()         -- Move back to (1,0)
-    safeBack()         -- Move back to (1,-1) (relative to origin of 2x2 area)
-    safeTurnLeft()     -- Turn left (now facing north, back at (0,0) of the 2x2 area)
+    while currentHeight < maxHarvestHeight do
+        if turtle.detectUp() then -- Check if there's a block directly above.
+            safeUp() -- Move up.
+            success, reason = turtle.digDown() -- Dig the block it just moved off of (leaves or logs).
+            if not success then print("Warning: Failed to dig down at height " .. currentHeight .. ": " .. (reason or "Unknown")) end
+            currentHeight = currentHeight + 1
+        else
+            break -- No more blocks above, reached the top of the tree (or max height).
+        end
+    end
+    
+    -- Come back down to ground level, digging any remaining blocks on the way down.
+    while currentY > originalY do
+        safeDown() -- Move down.
+        success, reason = turtle.digUp() -- Dig any blocks below (leaves or logs) that might have been missed.
+        if not success then print("Warning: Failed to dig up while descending: " .. (reason or "Unknown")) end
+    end
+    
+    -- Collect all dropped items around the turtle.
+    -- Trees drop items randomly, so suck in all directions.
+    for i = 1, 4 do -- Check 4 cardinal directions.
+        turtle.suck() -- Suck items in front.
+        safeTurnRight() -- Turn to check next direction.
+    end
+    turtle.suckDown() -- Suck items directly below.
+    turtle.suckUp()   -- Suck items directly above.
 
-    -- Restore internal position tracking to original state after harvesting sequence.
+    -- Restore internal position tracking to original state.
     currentX, currentY, currentZ, currentDir = originalX, originalY, originalZ, originalDir
-    print("Finished harvesting 2x2 tree.") -- Changed message for clarity
+    print("Finished harvesting 2x2 tree.")
 end
 
 -- Harvests all trees in the defined farm layout (TREE_PLOTS).
